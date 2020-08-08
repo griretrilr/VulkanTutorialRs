@@ -1,0 +1,5 @@
+[workspace]
+
+members = [
+  "vulkan_tutorial_rs",
+]
