@@ -8,3 +8,5 @@ CS/Griretrilr.QC3/obj/
 CS/packages/
 CS/x64/
 Rust/target/
+vulkan_tutorial_rs/target/
+vulkan_tutorial_rs/.idea/workspace.xml

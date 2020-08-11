@@ -1,6 +1,6 @@
 use vulkano::instance::debug::{DebugCallback, MessageSeverity, MessageType};
 use vulkano::instance::ApplicationInfo;
-use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
+use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice, PhysicalDeviceType};
 use vulkano::swapchain::Surface;
 
 use vulkano_win::VkSurfaceBuild;
@@ -106,12 +106,20 @@ impl App {
 
     fn pick_physical_device(instance: &Arc<Instance>) -> PhysicalDevice {
         PhysicalDevice::enumerate(&instance)
-            .find(Self::is_physical_device_suitable)
+            .max_by_key(Self::rate_physical_device)
             .unwrap()
     }
 
-    fn is_physical_device_suitable(d: &PhysicalDevice) -> bool {
-        true // TODO
+    fn rate_physical_device(d: &PhysicalDevice) -> Option<u32> {
+        let mut score = 0;
+
+        if d.ty() == PhysicalDeviceType::DiscreteGpu {
+            score += 1000000;
+        }
+
+        score += d.limits().max_image_dimension_2d();
+
+        Some(score)
     }
 
     fn check_validation_layer_support() -> bool {
