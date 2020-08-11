@@ -110,16 +110,18 @@ impl App {
             .unwrap()
     }
 
-    fn rate_physical_device(d: &PhysicalDevice) -> Option<u32> {
+    fn rate_physical_device(d: &PhysicalDevice) -> u32 {
         let mut score = 0;
 
+        // Discrete GPU is better
         if d.ty() == PhysicalDeviceType::DiscreteGpu {
-            score += 1000000;
+            score += 1_000_000;
         }
 
+        // Better image quality with bigger textures.
         score += d.limits().max_image_dimension_2d();
 
-        Some(score)
+        score
     }
 
     fn check_validation_layer_support() -> bool {
