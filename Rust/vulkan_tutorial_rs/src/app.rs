@@ -1,6 +1,6 @@
 use vulkano::instance::debug::{DebugCallback, MessageSeverity, MessageType};
 use vulkano::instance::ApplicationInfo;
-use vulkano::instance::{Instance, InstanceExtensions};
+use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
 use vulkano::swapchain::Surface;
 
 use vulkano_win::VkSurfaceBuild;
@@ -21,6 +21,7 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
 pub struct App {
     instance: Arc<Instance>,
     debug_callback: Option<DebugCallback>,
+    physical_device_index: usize,
     event_loop: EventLoop<()>,
     surface: Arc<Surface<Window>>,
 }
@@ -46,6 +47,9 @@ impl App {
                 .expect("failed to create Vulkan instance")
         };
         let debug_callback = Self::setup_debug_callback(&instance);
+        let physical_device = Self::pick_physical_device(&instance);
+        let physical_device_index = physical_device.index();
+        println!("Physical device: {}", physical_device.name());
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .build_vk_surface(&event_loop, instance.clone())
@@ -54,6 +58,7 @@ impl App {
         App {
             instance,
             debug_callback,
+            physical_device_index,
             event_loop,
             surface,
         }
@@ -97,6 +102,16 @@ impl App {
             println!("debug callback: {:?}", msg.description);
         })
         .ok()
+    }
+
+    fn pick_physical_device(instance: &Arc<Instance>) -> PhysicalDevice {
+        PhysicalDevice::enumerate(&instance)
+            .find(Self::is_physical_device_suitable)
+            .unwrap()
+    }
+
+    fn is_physical_device_suitable(d: &PhysicalDevice) -> bool {
+        true // TODO
     }
 
     fn check_validation_layer_support() -> bool {
