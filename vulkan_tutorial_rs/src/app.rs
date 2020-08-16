@@ -120,15 +120,24 @@ mod app_setup {
         instance: &'a Arc<Instance>,
         surface: &'a Arc<Surface<Window>>,
     ) -> PhysicalDevice<'a> {
-        PhysicalDevice::enumerate(&instance)
-            .max_by_key(|d| rate_physical_device(d, surface))
+        let score_func = |d| {
+            let s: Option<u32> = rate_physical_device(&d, surface);
+            match s {
+                Some(s) => Some((d, s)),
+                None => None,
+            }
+        };
+        PhysicalDevice::enumerate(instance)
+            .filter_map(score_func)
+            .max_by_key(|&(_, s)| s)
             .unwrap()
+            .0
     }
 
-    fn rate_physical_device(d: &PhysicalDevice, s: &Surface<Window>) -> u32 {
+    fn rate_physical_device(d: &PhysicalDevice, s: &Surface<Window>) -> Option<u32> {
         let queue_families = QueueFamilies::new(d, s);
         if !queue_families.is_complete() {
-            return 0;
+            return None;
         }
 
         let mut score = 0;
@@ -141,7 +150,7 @@ mod app_setup {
         // Better image quality with bigger textures.
         score += d.limits().max_image_dimension_2d();
 
-        score
+        Some(score)
     }
 
     fn required_device_extensions() -> DeviceExtensions {
