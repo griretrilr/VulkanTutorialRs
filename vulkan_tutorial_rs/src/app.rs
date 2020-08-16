@@ -134,9 +134,24 @@ mod app_setup {
             .0
     }
 
+    fn required_device_extensions() -> DeviceExtensions {
+        DeviceExtensions {
+            khr_swapchain: true,
+            ..DeviceExtensions::none()
+        }
+    }
+
     fn rate_physical_device(d: &PhysicalDevice, s: &Surface<Window>) -> Option<u32> {
         let queue_families = QueueFamilies::new(d, s);
         if !queue_families.is_complete() {
+            return None;
+        }
+
+        let required_device_extensions = required_device_extensions();
+        let supported_device_extensions = DeviceExtensions::supported_by_device(*d);
+        if required_device_extensions.intersection(&supported_device_extensions)
+            != required_device_extensions
+        {
             return None;
         }
 
@@ -151,10 +166,6 @@ mod app_setup {
         score += d.limits().max_image_dimension_2d();
 
         Some(score)
-    }
-
-    fn required_device_extensions() -> DeviceExtensions {
-        DeviceExtensions::none()
     }
 
     fn create_logical_device(
