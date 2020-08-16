@@ -7,6 +7,8 @@ extern crate winit;
 mod app;
 use app::App;
 
+mod queue_family;
+
 fn main() {
     let app = App::new();
     app.run();

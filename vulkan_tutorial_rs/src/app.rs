@@ -1,3 +1,4 @@
+use vulkano::device::Queue;
 use vulkano::instance::debug::DebugCallback;
 use vulkano::instance::Instance;
 use vulkano::swapchain::Surface;
@@ -21,23 +22,30 @@ pub struct App {
     event_loop: EventLoop<()>,
     _surface: Arc<Surface<Window>>,
     _physical_device_index: usize,
+    _graphics_queue: Arc<Queue>,
+    _present_queue: Arc<Queue>,
 }
 
 mod app_setup {
+    use crate::queue_family::QueueFamilyExt;
+
+    use vulkano::device::{Device, DeviceExtensions, Features, Queue};
     use vulkano::instance::debug::{DebugCallback, MessageSeverity, MessageType};
     use vulkano::instance::{ApplicationInfo, QueueFamily};
     use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice, PhysicalDeviceType};
+    use vulkano::swapchain::Surface;
 
     use vulkano_win::VkSurfaceBuild;
 
     use winit::event_loop::EventLoop;
-    use winit::window::WindowBuilder;
+    use winit::window::{Window, WindowBuilder};
 
+    use std::collections::BTreeSet;
     use std::sync::Arc;
-    use vulkano::device::{Device, DeviceExtensions, Features, Queue};
 
     struct QueueFamilies {
         graphics_family_id: Option<u32>,
+        present_family_id: Option<u32>,
     }
 
     fn create_app_info() -> ApplicationInfo<'static> {
@@ -108,13 +116,21 @@ mod app_setup {
         .ok()
     }
 
-    fn pick_physical_device(instance: &Arc<Instance>) -> PhysicalDevice {
+    fn pick_physical_device<'a>(
+        instance: &'a Arc<Instance>,
+        surface: &'a Arc<Surface<Window>>,
+    ) -> PhysicalDevice<'a> {
         PhysicalDevice::enumerate(&instance)
-            .max_by_key(rate_physical_device)
+            .max_by_key(|d| rate_physical_device(d, surface))
             .unwrap()
     }
 
-    fn rate_physical_device(d: &PhysicalDevice) -> u32 {
+    fn rate_physical_device(d: &PhysicalDevice, s: &Surface<Window>) -> u32 {
+        let queue_families = QueueFamilies::new(d, s);
+        if !queue_families.is_complete() {
+            return 0;
+        }
+
         let mut score = 0;
 
         // Discrete GPU is better
@@ -136,7 +152,7 @@ mod app_setup {
         physical_device: PhysicalDevice,
         families: &QueueFamilies,
         extensions: &DeviceExtensions,
-    ) -> (Arc<Device>, Arc<Queue>) {
+    ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
         let features = Features {
             robust_buffer_access: false,
             full_draw_index_uint32: false,
@@ -197,17 +213,29 @@ mod app_setup {
             buffer_device_address_capture_replay: false,
             buffer_device_address_multi_device: false,
         };
-        let graphics_family = families.graphics_family(&physical_device);
+        let graphics_family =
+            QueueFamilyExt::new(families.graphics_family(&physical_device).unwrap());
+        let present_family =
+            QueueFamilyExt::new(families.present_family(&physical_device).unwrap());
         let queue_priority = 1.0f32;
-        let queue_families = [(graphics_family.unwrap(), queue_priority)];
-        let queue_families = Vec::from(queue_families).into_iter(); // TODO - is there a better way to get this value
+        let mut families_set: BTreeSet<QueueFamilyExt> = BTreeSet::new();
+        families_set.insert(graphics_family);
+        families_set.insert(present_family);
+        let families_and_priorities = families_set
+            .into_iter()
+            .map(|f| (f.inner(), queue_priority));
 
-        let (device, mut queues) =
-            vulkano::device::Device::new(physical_device, &features, extensions, queue_families)
-                .unwrap();
+        let (device, mut queues) = vulkano::device::Device::new(
+            physical_device,
+            &features,
+            extensions,
+            families_and_priorities,
+        )
+        .unwrap();
         let graphics_queue = queues.next().unwrap();
+        let present_queue = queues.next().unwrap_or_else(|| graphics_queue.clone());
 
-        (device, graphics_queue)
+        (device, graphics_queue, present_queue)
     }
 
     pub fn new_app() -> super::App {
@@ -226,15 +254,15 @@ mod app_setup {
         let instance = create_instance(&app_info, &required_instance_extensions);
         let _debug_callback = setup_debug_callback(&instance);
         let event_loop = EventLoop::new();
-        let _surface = WindowBuilder::new()
+        let surface = WindowBuilder::new()
             .build_vk_surface(&event_loop, instance.clone())
             .unwrap();
-        let physical_device = pick_physical_device(&instance);
+        let physical_device = pick_physical_device(&instance, &surface);
         println!("Physical device: {}", physical_device.name());
         let _physical_device_index = physical_device.index();
-        let queue_families = QueueFamilies::new(&physical_device);
+        let queue_families = QueueFamilies::new(&physical_device, surface.as_ref());
         let required_device_extensions = required_device_extensions();
-        let (_device, _queues) = create_logical_device(
+        let (_device, _graphics_queue, _present_queue) = create_logical_device(
             physical_device,
             &queue_families,
             &required_device_extensions,
@@ -244,19 +272,25 @@ mod app_setup {
             _instance: instance,
             _debug_callback,
             event_loop,
-            _surface,
+            _surface: surface,
             _physical_device_index,
+            _graphics_queue,
+            _present_queue,
         }
     }
 
     impl QueueFamilies {
-        pub fn new(device: &PhysicalDevice) -> QueueFamilies {
+        pub fn new(device: &PhysicalDevice, surface: &Surface<Window>) -> QueueFamilies {
             let mut families = QueueFamilies {
                 graphics_family_id: None,
+                present_family_id: None,
             };
             for family in device.queue_families() {
                 if families.graphics_family_id == None && family.supports_graphics() {
                     families.graphics_family_id = Some(family.id())
+                }
+                if families.present_family_id == None && surface.is_supported(family).unwrap() {
+                    families.present_family_id = Some(family.id())
                 }
                 if families.is_complete() {
                     break;
@@ -270,8 +304,13 @@ mod app_setup {
                 .and_then(|i| device.queue_family_by_id(i))
         }
 
+        fn present_family<'a>(&self, device: &PhysicalDevice<'a>) -> Option<QueueFamily<'a>> {
+            self.present_family_id
+                .and_then(|i| device.queue_family_by_id(i))
+        }
+
         fn is_complete(&self) -> bool {
-            return self.graphics_family_id != None;
+            return self.graphics_family_id != None && self.present_family_id != None;
         }
     }
 }
