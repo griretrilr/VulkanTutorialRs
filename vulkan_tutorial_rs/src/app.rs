@@ -18,9 +18,9 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
 pub struct App {
     _instance: Arc<Instance>,
     _debug_callback: Option<DebugCallback>,
-    _physical_device_index: usize,
-    _event_loop: EventLoop<()>,
+    event_loop: EventLoop<()>,
     _surface: Arc<Surface<Window>>,
+    _physical_device_index: usize,
 }
 
 mod app_setup {
@@ -34,7 +34,7 @@ mod app_setup {
     use winit::window::WindowBuilder;
 
     use std::sync::Arc;
-    use vulkano::device::{Device, DeviceCreationError, DeviceExtensions, Features, QueuesIter};
+    use vulkano::device::{Device, DeviceExtensions, Features, Queue};
 
     struct QueueFamilies {
         graphics_family_id: Option<u32>,
@@ -136,7 +136,7 @@ mod app_setup {
         physical_device: PhysicalDevice,
         families: &QueueFamilies,
         extensions: &DeviceExtensions,
-    ) -> Result<(Arc<Device>, QueuesIter), DeviceCreationError> {
+    ) -> (Arc<Device>, Arc<Queue>) {
         let features = Features {
             robust_buffer_access: false,
             full_draw_index_uint32: false,
@@ -200,10 +200,14 @@ mod app_setup {
         let graphics_family = families.graphics_family(&physical_device);
         let queue_priority = 1.0f32;
         let queue_families = [(graphics_family.unwrap(), queue_priority)];
-        let v = Vec::from(queue_families);
-        let i = v.into_iter();
+        let queue_families = Vec::from(queue_families).into_iter(); // TODO - is there a better way to get this value
 
-        vulkano::device::Device::new(physical_device, &features, extensions, i)
+        let (device, mut queues) =
+            vulkano::device::Device::new(physical_device, &features, extensions, queue_families)
+                .unwrap();
+        let graphics_queue = queues.next().unwrap();
+
+        (device, graphics_queue)
     }
 
     pub fn new_app() -> super::App {
@@ -221,28 +225,27 @@ mod app_setup {
 
         let instance = create_instance(&app_info, &required_instance_extensions);
         let _debug_callback = setup_debug_callback(&instance);
+        let event_loop = EventLoop::new();
+        let _surface = WindowBuilder::new()
+            .build_vk_surface(&event_loop, instance.clone())
+            .unwrap();
         let physical_device = pick_physical_device(&instance);
         println!("Physical device: {}", physical_device.name());
         let _physical_device_index = physical_device.index();
         let queue_families = QueueFamilies::new(&physical_device);
         let required_device_extensions = required_device_extensions();
-        let _queue = create_logical_device(
+        let (_device, _queues) = create_logical_device(
             physical_device,
             &queue_families,
             &required_device_extensions,
         );
 
-        let event_loop = EventLoop::new();
-        let _surface = WindowBuilder::new()
-            .build_vk_surface(&event_loop, instance.clone())
-            .unwrap();
-
         super::App {
             _instance: instance,
             _debug_callback,
-            _physical_device_index,
-            _event_loop: event_loop,
+            event_loop,
             _surface,
+            _physical_device_index,
         }
     }
 
@@ -279,7 +282,7 @@ impl App {
     }
 
     pub fn run(self) {
-        self._event_loop
+        self.event_loop
             .run(move |event, _, control_flow| match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
