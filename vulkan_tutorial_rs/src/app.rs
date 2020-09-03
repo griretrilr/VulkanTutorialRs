@@ -3,9 +3,10 @@ mod init;
 
 use std::sync::Arc;
 use vulkano::device::{Device, Queue};
+use vulkano::image::SwapchainImage;
 use vulkano::instance::debug::DebugCallback;
 use vulkano::instance::Instance;
-use vulkano::swapchain::Surface;
+use vulkano::swapchain::{Surface, Swapchain};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
@@ -19,6 +20,8 @@ pub struct App {
     _device: Arc<Device>,
     _graphics_queue: Arc<Queue>,
     _present_queue: Arc<Queue>,
+    _swapchain: Arc<Swapchain<Window>>,
+    _swapchain_images: Vec<Arc<SwapchainImage<Window>>>,
 }
 
 impl App {
