@@ -1,5 +1,5 @@
 use crate::app::config::required_device_extensions;
-use crate::app::init::physical_device_info::PhysicalDeviceInfo;
+use crate::app::PhysicalDeviceInfo;
 use crate::vulkano_ext::QueueFamilyExt;
 use std::collections::BTreeSet;
 use std::sync::Arc;

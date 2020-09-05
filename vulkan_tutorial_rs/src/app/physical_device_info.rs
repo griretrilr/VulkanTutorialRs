@@ -1,38 +1,44 @@
 use crate::app::config::required_device_extensions;
-use crate::app::init::indented_printer::IndentedPrinter;
-use crate::app::init::queue_families::QueueFamilies;
+use crate::app::init::IndentedPrinter;
+use crate::app::QueueFamilies;
 use std::cmp::Ordering;
 use std::sync::Arc;
 use vulkano::device::DeviceExtensions;
-use vulkano::instance::{PhysicalDevice, PhysicalDeviceType, QueueFamily};
+use vulkano::instance::{Instance, PhysicalDevice, PhysicalDeviceType, QueueFamily};
 use vulkano::swapchain::{Capabilities, Surface};
 use winit::window::Window;
 
-pub struct PhysicalDeviceInfo<'a> {
-    physical_device: PhysicalDevice<'a>,
-    surface: &'a Arc<Surface<Window>>,
+pub struct PhysicalDeviceInfo {
+    instance: Arc<Instance>,
+    physical_device_index: usize,
+    surface: Arc<Surface<Window>>,
     supported_extensions: DeviceExtensions,
 }
 
-impl PhysicalDeviceInfo<'_> {
-    pub fn new<'a>(
-        physical_device: PhysicalDevice<'a>,
-        surface: &'a Arc<Surface<Window>>,
-    ) -> PhysicalDeviceInfo<'a> {
-        let supported_extensions = DeviceExtensions::supported_by_device(physical_device);
+impl PhysicalDeviceInfo {
+    pub fn new(
+        physical_device: &PhysicalDevice,
+        surface: &Arc<Surface<Window>>,
+    ) -> PhysicalDeviceInfo {
+        let supported_extensions = DeviceExtensions::supported_by_device(*physical_device);
         PhysicalDeviceInfo {
-            physical_device,
-            surface,
+            instance: physical_device.instance().clone(),
+            physical_device_index: physical_device.index(),
+            surface: surface.clone(),
             supported_extensions,
         }
     }
 
     pub fn physical_device(&self) -> PhysicalDevice {
-        self.physical_device
+        PhysicalDevice::from_index(&self.instance, self.physical_device_index).unwrap()
+    }
+
+    pub fn surface(&self) -> &Arc<Surface<Window>> {
+        &self.surface
     }
 
     pub fn queue_families(&self) -> QueueFamilies {
-        QueueFamilies::new(self.physical_device(), self.surface)
+        QueueFamilies::new(self.physical_device(), &self.surface())
     }
 
     pub fn graphics_family(&self) -> Option<QueueFamily> {
@@ -55,7 +61,7 @@ impl PhysicalDeviceInfo<'_> {
     }
 
     pub fn surface_capabilities(&self) -> Capabilities {
-        self.surface
+        self.surface()
             .capabilities(self.physical_device())
             .expect("failed to get surface capabilities")
     }
@@ -67,11 +73,11 @@ impl PhysicalDeviceInfo<'_> {
     }
 
     pub fn is_discrete_gpu(&self) -> bool {
-        self.physical_device.ty() == PhysicalDeviceType::DiscreteGpu
+        self.physical_device().ty() == PhysicalDeviceType::DiscreteGpu
     }
 
     pub fn max_image_dimension_2d(&self) -> u32 {
-        self.physical_device.limits().max_image_dimension_2d()
+        self.physical_device().limits().max_image_dimension_2d()
     }
 
     pub fn is_valid(&self) -> bool {
@@ -104,11 +110,11 @@ impl PhysicalDeviceInfo<'_> {
         printer.print_line(&format!(
             "[{index}] {name}",
             index = self.physical_device().index(),
-            name = self.physical_device.name()
+            name = self.physical_device().name()
         ));
         printer.indent();
         printer.print_key_value_debug("Is Valid", &self.is_valid());
-        printer.print_key_value_debug("Type", &self.physical_device.ty());
+        printer.print_key_value_debug("Type", &self.physical_device().ty());
         printer.print_key_value_debug("Graphics Queue Family", &self.graphics_family());
         printer.print_key_value_debug("Present Queue Family", &self.present_family());
         printer.print_key_value_debug("Max Image Dimensions 2D", &self.max_image_dimension_2d());

@@ -1,21 +1,21 @@
-mod indented_printer;
-mod logical_device;
-mod physical_device_info;
-mod queue_families;
-mod swapchain_info;
+pub mod indented_printer;
 
-use crate::app::init::swapchain_info::SwapchainInfo;
+pub use indented_printer::IndentedPrinter;
+
+use crate::app::{LogicalDevice, PhysicalDeviceInfo, SwapchainInfo};
 use crate::vulkano_ext::{message_severity_to_string, message_type_to_string};
-use logical_device::LogicalDevice;
-use physical_device_info::PhysicalDeviceInfo;
-use std::sync::Arc;
+
 use vulkano::instance::debug::{DebugCallback, MessageSeverity, MessageType};
 use vulkano::instance::ApplicationInfo;
 use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
 use vulkano::swapchain::Surface;
+
 use vulkano_win::VkSurfaceBuild;
+
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
+
+use std::sync::Arc;
 
 pub fn new_app() -> crate::App {
     println!("Initialising app...");
@@ -47,19 +47,17 @@ pub fn new_app() -> crate::App {
     let surface = create_surface(&instance, &event_loop);
     println!("Surface created");
 
-    let physical_device_infos = get_physical_devices(&instance, &surface);
+    let physical_device_infos = get_physical_device_infos(&instance, &surface);
     println!("Physical devices:");
     for d in physical_device_infos.iter() {
         d.print("    ", "    ");
     }
 
-    let physical_device_info = pick_physical_device(&physical_device_infos);
+    let physical_device_info = pick_physical_device_info(physical_device_infos);
     println!("Best device:");
     physical_device_info.print("    ", "    ");
 
-    let physical_device_index = physical_device_info.physical_device().index();
-
-    let logical_device = LogicalDevice::new(physical_device_info);
+    let logical_device = LogicalDevice::new(&physical_device_info);
 
     let swapchain_info = SwapchainInfo::new(
         &surface,
@@ -72,12 +70,9 @@ pub fn new_app() -> crate::App {
         _debug_callback: debug_callback,
         _event_loop: event_loop,
         _surface: surface,
-        _physical_device_index: physical_device_index,
-        _device: logical_device.device().clone(),
-        _graphics_queue: logical_device.graphics_queue().clone(),
-        _present_queue: logical_device.present_queue().clone(),
-        _swapchain: swapchain_info.swapchain().clone(),
-        _swapchain_images: swapchain_info.images().clone(),
+        _physical_device_info: physical_device_info,
+        _logical_device: logical_device,
+        _swapchain_info: swapchain_info,
     }
 }
 
@@ -121,22 +116,20 @@ fn create_surface(instance: &Arc<Instance>, event_loop: &EventLoop<()>) -> Arc<S
         .unwrap()
 }
 
-fn get_physical_devices<'a>(
-    instance: &'a Arc<Instance>,
-    surface: &'a Arc<Surface<Window>>,
-) -> Vec<PhysicalDeviceInfo<'a>> {
+fn get_physical_device_infos(
+    instance: &Arc<Instance>,
+    surface: &Arc<Surface<Window>>,
+) -> Vec<PhysicalDeviceInfo> {
     PhysicalDevice::enumerate(instance)
-        .map(|d| PhysicalDeviceInfo::new(d, surface))
+        .map(|d| PhysicalDeviceInfo::new(&d, surface))
         .collect()
 }
 
-fn pick_physical_device<'a>(
-    devices: &'a Vec<PhysicalDeviceInfo<'a>>,
-) -> &'a PhysicalDeviceInfo<'a> {
+fn pick_physical_device_info(devices: Vec<PhysicalDeviceInfo>) -> PhysicalDeviceInfo {
     devices
-        .iter()
-        .filter(|&d| d.is_valid())
-        .max_by(|&a, &b| a.cmp(b))
+        .into_iter()
+        .filter(|d| d.is_valid())
+        .max_by(|a, b| a.cmp(&b))
         .expect("no valid physical devices found")
 }
 

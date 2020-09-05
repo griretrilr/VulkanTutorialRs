@@ -1,4 +1,4 @@
-use crate::app::init::logical_device::LogicalDevice;
+use crate::app::LogicalDevice;
 use std::sync::Arc;
 use vulkano::format::Format;
 use vulkano::image::{ImageUsage, SwapchainImage};
@@ -11,8 +11,8 @@ use vulkano::sync::SharingMode;
 use winit::window::Window;
 
 pub struct SwapchainInfo {
-    swapchain: Arc<Swapchain<Window>>,
-    images: Vec<Arc<SwapchainImage<Window>>>,
+    _swapchain: Arc<Swapchain<Window>>,
+    _images: Vec<Arc<SwapchainImage<Window>>>,
 }
 
 impl SwapchainInfo {
@@ -52,15 +52,18 @@ impl SwapchainInfo {
             color_space,
         )
         .expect("failed to create swapchain");
-        SwapchainInfo { swapchain, images }
+        SwapchainInfo {
+            _swapchain: swapchain,
+            _images: images,
+        }
     }
 
-    pub fn swapchain(&self) -> &Arc<Swapchain<Window>> {
-        &self.swapchain
+    pub fn _swapchain(&self) -> &Arc<Swapchain<Window>> {
+        &self._swapchain
     }
 
-    pub fn images(&self) -> &Vec<Arc<SwapchainImage<Window>>> {
-        &self.images
+    pub fn _images(&self) -> &Vec<Arc<SwapchainImage<Window>>> {
+        &self._images
     }
 }
 

@@ -1,14 +1,24 @@
 pub mod config;
-mod init;
 
-use std::sync::Arc;
-use vulkano::device::{Device, Queue};
-use vulkano::image::SwapchainImage;
+mod init;
+mod logical_device;
+mod physical_device_info;
+mod queue_families;
+mod swapchain_info;
+
+pub use logical_device::LogicalDevice;
+pub use physical_device_info::PhysicalDeviceInfo;
+pub use queue_families::QueueFamilies;
+pub use swapchain_info::SwapchainInfo;
+
 use vulkano::instance::debug::DebugCallback;
 use vulkano::instance::Instance;
-use vulkano::swapchain::{Surface, Swapchain};
+
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
+
+use std::sync::Arc;
+use vulkano::swapchain::Surface;
 use winit::window::Window;
 
 pub struct App {
@@ -16,12 +26,9 @@ pub struct App {
     _debug_callback: Option<DebugCallback>,
     _event_loop: EventLoop<()>,
     _surface: Arc<Surface<Window>>,
-    _physical_device_index: usize,
-    _device: Arc<Device>,
-    _graphics_queue: Arc<Queue>,
-    _present_queue: Arc<Queue>,
-    _swapchain: Arc<Swapchain<Window>>,
-    _swapchain_images: Vec<Arc<SwapchainImage<Window>>>,
+    _physical_device_info: PhysicalDeviceInfo,
+    _logical_device: LogicalDevice,
+    _swapchain_info: SwapchainInfo,
 }
 
 impl App {
