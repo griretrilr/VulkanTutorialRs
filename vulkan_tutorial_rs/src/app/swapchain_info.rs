@@ -13,6 +13,8 @@ use winit::window::Window;
 pub struct SwapchainInfo {
     _swapchain: Arc<Swapchain<Window>>,
     _images: Vec<Arc<SwapchainImage<Window>>>,
+    _format: Format,
+    _dimensions: [u32; 2],
 }
 
 impl SwapchainInfo {
@@ -55,6 +57,8 @@ impl SwapchainInfo {
         SwapchainInfo {
             _swapchain: swapchain,
             _images: images,
+            _format: format,
+            _dimensions: dimensions,
         }
     }
 
