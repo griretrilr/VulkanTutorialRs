@@ -14,7 +14,6 @@ pub struct SwapchainInfo {
     _swapchain: Arc<Swapchain<Window>>,
     _images: Vec<Arc<SwapchainImage<Window>>>,
     _format: Format,
-    _dimensions: [u32; 2],
 }
 
 impl SwapchainInfo {
@@ -58,7 +57,6 @@ impl SwapchainInfo {
             _swapchain: swapchain,
             _images: images,
             _format: format,
-            _dimensions: dimensions,
         }
     }
 
@@ -68,6 +66,14 @@ impl SwapchainInfo {
 
     pub fn _images(&self) -> &Vec<Arc<SwapchainImage<Window>>> {
         &self._images
+    }
+
+    pub fn _format(&self) -> &Format {
+        &self._format
+    }
+
+    pub fn _dimensions(&self) -> [u32; 2] {
+        self._swapchain().dimensions()
     }
 }
 
